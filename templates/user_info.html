@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %} {{user.username}}'s Page {% endblock %}
+
+{% block body %}
+
+<h2>{{user.username}}'s Details:</h1>
+<ul>
+    <li>Username: {{user.username}}</li>
+    <li>Email: {{user.email}} </li>
+    <li>First Name: {{user.first_name}}</li>
+    <li>Last Name: {{user.last_name}}</li>
+</ul>
+<div class="m-4">
+    <a href="/users/{{user.username}}/delete" class="btn btn-danger" role="button">Delete User</a>
+</div>
+
+<h3>{{user.username}}'s Feedback:</h2>
+<ul>
+    {% for f in feedback %}
+        <li>
+            <a href="/feedback/{{f.id}}">{{f.title}}</a>
+        </li>
+    {% endfor %}
+</ul>
+
+<div class="m-4">
+    <a href="/users/{{user.username}}/feedback/add" class="btn btn-primary" role="button">Add Feedback</a>
+</div>
+
+{% endblock %}

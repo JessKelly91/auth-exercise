@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %} {{feedback.title}} {% endblock %}
+
+{% block body %}
+
+<h3>{{feedback.title}}</h1>
+<p>{{feedback.content}}</p>
+
+<div>
+    <a href="/feedback/{{feedback.id}}/update" class="btn btn-primary" role="button">Edit Feedback</a>
+    <a href="/feedback/{{feedback.id}}/delete" class="btn btn-danger" role="button">Delete Feedback</a>
+</div>
+
+
+{% endblock %}

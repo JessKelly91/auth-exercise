@@ -27,10 +27,12 @@ def redirect_to_register():
 
 @app.route('/register')
 def show_registration_form():
-    """Show the registration form"""
+    """Show the registration form
+       Don't show if user is already logged in"""
+    
     if "user" in session:
         logged_in_user = session.get('user')
-
+        
         return redirect(f'/users/{logged_in_user}')
 
     form = RegistrationForm()
@@ -39,7 +41,9 @@ def show_registration_form():
 
 @app.route('/register', methods=["POST"])
 def handle_registration_form():
-    """Process the registration form and redirect to user secret page"""
+    """Process the registration form and redirect to user page
+       Don't show if user is already logged in"""
+
     if "user" in session:
         logged_in_user = session.get('user')
 
@@ -66,13 +70,14 @@ def handle_registration_form():
 
         return redirect(f'/users/{username}')
     
-    else:
-        return render_template('register.html', form=form)
+
+    return render_template('register.html', form=form)
 
 
 @app.route('/login')
 def show_login_form():
-    """Show login form"""
+    """Show login form
+       Don't show if user is already logged in"""
 
     if "user" in session:
         logged_in_user = session.get('user')
@@ -85,7 +90,9 @@ def show_login_form():
 
 @app.route('/login', methods=["POST"])
 def handle_login_form():
-    """Process login form and redirect to user secrete page"""
+    """Process login form and redirect to user secrete page
+       Don't show if user is already logged in"""
+
     if "user" in session:
         logged_in_user = session.get('user')
 
@@ -99,6 +106,7 @@ def handle_login_form():
         password = form.password.data
 
         user = User.authenticate(username, password)
+
         if user:
             session['user'] = user.username
             return redirect(f'/users/{username}')
@@ -116,17 +124,16 @@ def show_user_page(username):
         return redirect('/login')
     
     logged_in_user = session.get('user')
-    user = User.query.get_or_404(username)
-    feedback = Feedback.query.filter_by(username=username).all()
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
 
-    if logged_in_user != user.username:
-        if user.is_admin:
-            return render_template('user_info.html', user=user, feedback=feedback)
-        else:
-            flash("Oops, you can only look at your own info!")
-            return redirect(f'/users/{logged_in_user}')
+    if logged_in_user != username and not logged_in_user_DB.is_admin:
+        flash("Oops, you can only look at your own info!")
+        return redirect(f'/users/{logged_in_user}')
     
-    return render_template('user_info.html', user=user, feedback=feedback)
+    feedback = Feedback.query.filter_by(username=username).all()
+    page_user = User.query.get_or_404(username)
+    
+    return render_template('user_info.html', user=page_user, feedback=feedback)
 
 
 @app.route('/logout')
@@ -146,76 +153,79 @@ def delete_user(username):
         return redirect('/login')
     
     logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
 
-    if logged_in_user != username:
+    if logged_in_user != username and not logged_in_user_DB.is_admin:
         flash("Oops, you can only delete your own account!")
         return redirect(f'/users/{logged_in_user}')
-    else:
-        user = User.query.get_or_404(username)
-        db.session.delete(user)
-        db.session.commit()
 
-        return redirect('/')
+    user = User.query.get_or_404(username)
+    db.session.delete(user)
+    db.session.commit()
+
+    return redirect('/')
 
 @app.route('/users/<username>/feedback/add')
 def show_feedback_form(username):
     """show the add feedback form"""
-    form = FeedbackForm()
-    
     if "user" not in session:
         flash("Please login first!")
         return redirect('/login')
     
     logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
 
-    if logged_in_user != username:
+    if logged_in_user != username and not logged_in_user_DB.is_admin:
         flash("Oops, you can only add feedback to your own profile.")
         return redirect(f'/users/{logged_in_user}')
-    else:
-        user = User.query.get_or_404(username)
     
-    return render_template('feedback_form.html', form=form, user=user)
+    form = FeedbackForm()
+    page_user = User.query.get_or_404(username)
+    
+    return render_template('feedback_form.html', form=form, user=page_user)
 
 @app.route('/users/<username>/feedback/add', methods=["POST"])
 def handle_feedback_form(username):
     """show the add feedback form"""
-    form = FeedbackForm()
-
     if "user" not in session:
         flash("Please login first!")
         return redirect('/login')
     
     logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
     
-    if logged_in_user != username:
+    if logged_in_user != username and not logged_in_user_DB.is_admin:
         flash("Oops, you can only add feedback to your own profile.")
         return redirect(f'/users/{logged_in_user}')
-    else:
-        if form.validate_on_submit():
-            title = form.title.data
-            content = form.content.data
-            user = User.query.get_or_404(username)
+    
+    form = FeedbackForm()
 
-            new_feedback = Feedback(title=title, 
-                                    content=content,
-                                    username=user.username)
-            db.session.add(new_feedback)
-            db.session.commit()
+    if form.validate_on_submit():
+        title = form.title.data
+        content = form.content.data
+        page_user = User.query.get_or_404(username)
+
+        new_feedback = Feedback(title=title, 
+                                content=content,
+                                username=page_user.username)
+        db.session.add(new_feedback)
+        db.session.commit()
 
     return redirect(f'/users/{username}')
 
 @app.route('/feedback/<feedback_id>')
 def show_feedback_detail(feedback_id):
     """Show detailed feedback page"""
-    feedback = Feedback.query.get_or_404(feedback_id)
-
     if "user" not in session:
         flash("Please login first!")
         return redirect('/login')
     
-    logged_in_user = session.get('user')
+    feedback = Feedback.query.get_or_404(feedback_id)
 
-    if logged_in_user != feedback.username:
+    logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
+
+    if logged_in_user != feedback.username and not logged_in_user_DB.is_admin:
         flash("Oops, you can only see feedback on your own profile.")
         return redirect(f'/users/{logged_in_user}')
     
@@ -224,21 +234,22 @@ def show_feedback_detail(feedback_id):
 @app.route('/feedback/<feedback_id>/update')
 def show_update_feedback_form(feedback_id):
     """show the edit feedback form"""
-    feedback = Feedback.query.get_or_404(feedback_id)
-
     if "user" not in session:
         flash("Please login first!")
         return redirect('/login')
     
+    feedback = Feedback.query.get_or_404(feedback_id)
+        
     logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
+
+    if logged_in_user != feedback.username and not logged_in_user_DB.is_admin:
+        flash("Oops, you can only edit feedback on your own profile.")
+        return redirect(f'/users/{logged_in_user}')
 
     form = FeedbackForm()
     form.title.data = feedback.title
     form.content.data = feedback.content
-    
-    if logged_in_user != feedback.username:
-        flash("Oops, you can only edit feedback on your own profile.")
-        return redirect(f'/users/{logged_in_user}')
 
     return render_template('edit_feedback.html', feedback=feedback, form=form)
 
@@ -251,38 +262,37 @@ def handle_update_feedback_form(feedback_id):
         return redirect('/login')
     
     feedback = Feedback.query.get_or_404(feedback_id)
-    form = FeedbackForm()
 
     logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
 
-
-    if logged_in_user != feedback.username:
+    if logged_in_user != feedback.username and not logged_in_user_DB.is_admin:
         flash("Oops, you can only edit feedback on your own profile.")
         return redirect(f'/users/{logged_in_user}')
-    else:
-        feedback.title = form.title.data
-        feedback.content = form.content.data
-        db.session.commit()
+    
+    form = FeedbackForm()
+    feedback.title = form.title.data
+    feedback.content = form.content.data
+    db.session.commit()
 
     return redirect(f'/users/{logged_in_user}')
 
 @app.route('/feedback/<feedback_id>/delete')
 def delete_feedback(feedback_id):
     """delete individual piece of feedback"""
-
-    feedback = Feedback.query.get_or_404(feedback_id)
-
     if "user" not in session:
         flash("Please login first!")
         return redirect('/login')
     
+    feedback = Feedback.query.get_or_404(feedback_id)
     logged_in_user = session.get('user')
+    logged_in_user_DB = User.query.get_or_404(logged_in_user)
 
-    if logged_in_user != feedback.username:
+    if logged_in_user != feedback.username and not logged_in_user_DB.is_admin:
         flash("Oops, you can only delete your own feedback!")
         return redirect(f'/users/{logged_in_user}')
-    else:
-        db.session.delete(feedback)
-        db.session.commit()
+    
+    db.session.delete(feedback)
+    db.session.commit()
 
-        return redirect(f'/users/{logged_in_user}')
+    return redirect(f'/users/{logged_in_user}')
